@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekadashi Widget</title>
+    <style>
+        body { margin: 0; padding: 0; background: transparent; font-family: Arial, sans-serif; }
+        #ekadashi-widget-container {
+            max-width: 300px; 
+            margin: 0 auto;
+        }
+
+        #ekadashi-main-card {
+            background-color: #d32f2f; /* প্রধান লাল রঙ */
+            color: white;
+            padding: 20px 15px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #ekadashi-next-text {
+            font-size: 16px;
+            margin-bottom: 5px;
+            opacity: 0.9;
+        }
+
+        #ekadashi-name {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 5px 0 10px 0;
+            min-height: 30px; /* ডেটা লোড না হওয়া পর্যন্ত স্থান ধরে রাখতে */
+        }
+
+        #ekadashi-date {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 10px;
+            min-height: 20px;
+        }
+
+        #countdown-timer {
+            font-size: 24px;
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 8px 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            min-height: 24px;
+        }
+
+        #parana-info {
+            font-size: 18px;
+            margin: 15px 0;
+            background-color: #b71c1c; 
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #parana-time {
+            font-weight: bold;
+            margin: 0 5px;
+        }
+
+        #time-zone, #credit-text {
+            font-size: 14px;
+            margin: 5px 0;
+            opacity: 0.8;
+        }
+
+        #show-full-list {
+            background-color: #ffc107; /* হলুদ */
+            color: #333;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 90%;
+            margin: 15px 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease;
+        }
+
+        #show-full-list:hover {
+            background-color: #ff9800;
+        }
+
+        /* Modal (পপ-আপ) */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000; 
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto; 
+            padding: 20px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+            color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+        
+        /* Modal টেবিল CSS... */
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: #000; text-decoration: none; cursor: pointer; }
+        #ekadashi-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        #ekadashi-table th, #ekadashi-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        #ekadashi-table th { background-color: #f2f2f2; color: #333; font-weight: bold; }
+        .modal-note { font-size: 12px; color: #666; margin-top: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div id="ekadashi-widget-container">
+        <div id="ekadashi-main-card">
+            <p id="ekadashi-next-text">🌸 পরবর্তী একাদশী</p>
+            <h2 id="ekadashi-name"></h2>
+            <p id="ekadashi-date"></p>
+            <div id="countdown-timer">ডেটা লোড হচ্ছে...</div>
+            <div id="parana-info">
+                পারন: <span id="parana-time">N/A</span> <span id="parana-check"></span>
+            </div>
+            <p id="time-zone">সময়: IST (UTC+05:30) [কলকাতা]</p>
+            <button id="show-full-list">🔔 সম্পূর্ণ একাদশী তালিকা দেখুন</button>
+            <p id="credit-text">সমস্ত গণনা ভারতীয় মান সময় (IST) অনুযায়ী। (Powered by ISKCON)</p>
+        </div>
+    </div>
+    
+    <div id="full-ekadashi-list-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3>সম্পূর্ণ একাদশী তালিকা</h3>
+            <table id="ekadashi-table">
+                <thead>
+                    <tr>
+                        <th>একাদশী</th>
+                        <th>তারিখ</th>
+                        <th>পারন সময়</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="modal-note">দ্রষ্টব্য: এই ডেটা সরাসরি ইসকনের API থেকে নেওয়া হয়েছে।</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "https://calendar-api.iskcondesiretree.com/api/v1/ekadasi?place=kolkata";
+        let allEkadashis = [];
+        let countdownInterval;
+
+        // API থেকে ডেটা আনা
+        async function fetchEkadashiData() {
+            try {
+                // যেহেতু এটি GitHub Pages এ হোস্ট করা হবে, এটি সরাসরি API কল করতে পারবে।
+                const response = await fetch(API_URL); 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allEkadashis = await response.json();
+                initializeWidget();
+            } catch (error) {
+                console.error("Ekadashi API Fetch Error:", error);
+                document.getElementById('countdown-timer').innerHTML = "ডেটা লোড করা যায়নি। (GitHub Error)";
+                document.getElementById('ekadashi-name').textContent = "ত্রুটি";
+            }
+        }
+
+        function findNextEkadashi() {
+            const now = new Date();
+            let nextEkadashi = null;
+            for (const ekadashi of allEkadashis) {
+                const ekadashiDate = new Date(ekadashi.ekadasi_date); 
+                const ekadashiStart = new Date(ekadashiDate.getTime() + (12 * 60 * 60 * 1000));
+                
+                if (ekadashiStart > now) {
+                    nextEkadashi = ekadashi;
+                    break;
+                }
+            }
+            return nextEkadashi;
+        }
+
+        function updateCountdown(targetDateStr) {
+            clearInterval(countdownInterval);
+            const countdownTimer = document.getElementById('countdown-timer');
+            const targetDate = new Date(targetDateStr); 
+            const targetTime = targetDate.getTime(); 
+
+            countdownInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = targetTime - now;
+
+                if (distance < 0) {
+                    clearInterval(countdownInterval);
+                    countdownTimer.innerHTML = "একাদশী শুরু হয়ে গেছে!";
+                    setTimeout(fetchEkadashiData, 5000); // 5s পর রিফ্রেশ
+                    return;
+                }
+
+                const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                countdownTimer.innerHTML = 
+                    `${days} দিন ${hours} ঘণ্টা ${minutes} মিনিট ${seconds} সেকেন্ড বাকি`;
+
+            }, 1000);
+        }
+
+        function populateFullList() {
+            const tableBody = document.getElementById('ekadashi-table').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = ''; 
+
+            allEkadashis.forEach(ekadashi => {
+                const row = tableBody.insertRow();
+                const ekadashiDate = new Date(ekadashi.ekadasi_date);
+                const options = { day: 'numeric', month: 'long', year: 'numeric' };
+                const formattedDate = ekadashiDate.toLocaleDateString('bn-BD', options);
+                
+                const paranaInfo = ekadashi.parana_start_time_ist && ekadashi.parana_end_time_ist 
+                    ? `${ekadashi.parana_start_time_ist}-${ekadashi.parana_end_time_ist} (পরদিন)` 
+                    : "N/A";
+                
+                row.insertCell().textContent = ekadashi.ekadasi_name_bengali || ekadashi.ekadasi_name;
+                row.insertCell().textContent = formattedDate;
+                row.insertCell().textContent = paranaInfo;
+            });
+        }
+
+        function initializeWidget() {
+            clearInterval(countdownInterval);
+            const nextEkadashi = findNextEkadashi();
+            
+            const widgetName = document.getElementById('ekadashi-name');
+            const widgetDate = document.getElementById('ekadashi-date');
+            const widgetParana = document.getElementById('parana-time');
+            const widgetCheck = document.getElementById('parana-check');
+            const widgetCountdown = document.getElementById('countdown-timer');
+
+            if (nextEkadashi) {
+                const name = nextEkadashi.ekadasi_name_bengali || nextEkadashi.ekadasi_name;
+                const dateString = nextEkadashi.ekadasi_date;
+                const paranaStart = nextEkadashi.parana_start_time_ist;
+                const paranaEnd = nextEkadashi.parana_end_time_ist;
+
+                const ekadashiDate = new Date(dateString);
+                const options = { day: 'numeric', month: 'long', year: 'numeric' };
+                const formattedDate = ekadashiDate.toLocaleDateString('bn-BD', options);
+                
+                widgetName.textContent = name;
+                widgetDate.textContent = formattedDate;
+                widgetParana.textContent = `${paranaStart}-${paranaEnd}`;
+                widgetCheck.textContent = "✓";
+                
+                updateCountdown(dateString); 
+                populateFullList();
+            } else {
+                widgetName.textContent = "পরের বছরের ডেটা লোড হচ্ছে";
+                widgetDate.textContent = "";
+                widgetParana.textContent = "N/A";
+                widgetCheck.textContent = "";
+                widgetCountdown.innerHTML = "আপডেটের জন্য অপেক্ষা করুন";
+            }
+        }
+
+        // Modal ইভেন্ট হ্যান্ডেলার
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchEkadashiData();
+
+            const modal = document.getElementById("full-ekadashi-list-modal");
+            const btn = document.getElementById("show-full-list");
+            const span = document.getElementsByClassName("close-button")[0];
+
+            if (btn) {
+                btn.onclick = function() { modal.style.display = "block"; }
+            }
+            if (span) {
+                span.onclick = function() { modal.style.display = "none"; }
+            }
+            window.onclick = function(event) {
+                if (event.target == modal) { modal.style.display = "none"; }
+            }
+        });
+    </script>
+</body>
+</html>
